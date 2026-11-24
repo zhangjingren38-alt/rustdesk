@@ -331,6 +331,26 @@ jobs:
         shell: bash
         run: echo "SODIUM_LIB_DIR=$VCPKG_ROOT/installed/${{ matrix.job.vcpkg-triplet }}/lib" >> "$GITHUB_ENV"
 
+      - name: Inject custom server and key
+        shell: bash
+        env:
+          CUSTOM_SERVER: ${{ secrets.RENDEZVOUS_SERVER }}
+          CUSTOM_KEY: ${{ secrets.RS_PUB_KEY }}
+        run: |
+          python3 - <<'EOF'
+          import os, re, pathlib
+          p = pathlib.Path("libs/hbb_common/src/config.rs")
+          text = p.read_text(encoding="utf-8")
+          server = os.environ["CUSTOM_SERVER"].strip()
+          key = os.environ["CUSTOM_KEY"].strip()
+          assert server and key, "Missing RENDEZVOUS_SERVER or RS_PUB_KEY secret"
+          text, n1 = re.subn(r'pub const RENDEZVOUS_SERVERS: &\[&str\] = &\[[^\]]*\];', f'pub const RENDEZVOUS_SERVERS: &[&str] = &["{server}"];', text)
+          text, n2 = re.subn(r'pub const RS_PUB_KEY: &str = "[^"]*";', f'pub const RS_PUB_KEY: &str = "{key}";', text)
+          assert n1 == 1 and n2 == 1, f"Replace failed: n1={n1}, n2={n2}"
+          p.write_text(text, encoding="utf-8")
+          print("Injected custom server and key into libs/hbb_common/src/config.rs")
+          EOF
+
       - name: Build rustdesk
         run: |
           # Windows: build RustDesk
@@ -1596,6 +1616,26 @@ jobs:
         with:
           prefix-key: rustdesk-lib-cache-android # TODO: drop '-android' part after caches are invalidated
           key: ${{ matrix.job.target }}
+
+      - name: Inject custom server and key
+        shell: bash
+        env:
+          CUSTOM_SERVER: ${{ secrets.RENDEZVOUS_SERVER }}
+          CUSTOM_KEY: ${{ secrets.RS_PUB_KEY }}
+        run: |
+          python3 - <<'EOF'
+          import os, re, pathlib
+          p = pathlib.Path("libs/hbb_common/src/config.rs")
+          text = p.read_text(encoding="utf-8")
+          server = os.environ["CUSTOM_SERVER"].strip()
+          key = os.environ["CUSTOM_KEY"].strip()
+          assert server and key, "Missing RENDEZVOUS_SERVER or RS_PUB_KEY secret"
+          text, n1 = re.subn(r'pub const RENDEZVOUS_SERVERS: &\[&str\] = &\[[^\]]*\];', f'pub const RENDEZVOUS_SERVERS: &[&str] = &["{server}"];', text)
+          text, n2 = re.subn(r'pub const RS_PUB_KEY: &str = "[^"]*";', f'pub const RS_PUB_KEY: &str = "{key}";', text)
+          assert n1 == 1 and n2 == 1, f"Replace failed: n1={n1}, n2={n2}"
+          p.write_text(text, encoding="utf-8")
+          print("Injected custom server and key into libs/hbb_common/src/config.rs")
+          EOF
 
       - name: Build rustdesk lib
         env:
